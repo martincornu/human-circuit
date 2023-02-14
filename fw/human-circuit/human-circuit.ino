@@ -13,11 +13,11 @@ An emergency button also allows the EM to be deactivated manually.
 */
 /**************************************************************************/
 
-//#define DEBUG
+#define DEBUG
 
 #define LED_INT_PIN         13        // internal led pin
 #define TOUCH_PIN           A0        // pin where we get signal from human touch
-#define TOUCHING_THR        1010      // below this threshold means human is touching
+#define TOUCHING_THR        1015      // below this threshold means human is touching
 #define TOUCHING_TIME       90000     // time in ms to stay below the threshold to consider win
 #define RELEASE_TIME        600       // time in ms to confirm human has released conductors (not touching)
 #define TASER_DUTY          20000     // taser activation duty cycle in ms
@@ -85,7 +85,7 @@ void loop() {
   // Human touching measurement
   l_u16TouchValue = analogRead(TOUCH_PIN);  // read the value from human touch
   #ifdef DEBUG
-  //Serial.println(l_u16TouchValue);          // print the value to the serial port
+  Serial.println(l_u16TouchValue);          // print the value to the serial port
   #endif
 
   // human touching detected
