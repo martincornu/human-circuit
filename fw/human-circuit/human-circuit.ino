@@ -13,7 +13,7 @@ An emergency button also allows the EM to be deactivated manually.
 */
 /**************************************************************************/
 
-#define DEBUG
+//#define DEBUG
 
 #define LED_INT_PIN         13        // internal led pin
 #define TOUCH_PIN           A0        // pin where we get signal from human touch
@@ -26,6 +26,9 @@ An emergency button also allows the EM to be deactivated manually.
 #define TASER_PIN           3         // taser pin
 #define BTN_EMERGENCY_PIN   4         // emergency button pin
 #define DELAY_LOOP_MS       100
+
+uint8_t g_u8Success = 0u;             // Flag to indicate a success
+uint8_t g_u8Emergency = 0u;             // Flag to indicate an emergency fired
 
 uint8_t g_u8EMDefaultState = HIGH;    //EM ON at boot (locked)
 
@@ -68,7 +71,7 @@ void loop() {
   static uint8_t l_u8IsTouching = 0u;
 
   // Btn emergency management
-  //BtnEmergencyManagement();
+  BtnEmergencyManagement();
 
   // Shutdown taser if duration terminated or if released
   if ( (1u == l_u8TaserState) && ((0u == l_u8IsTouching) || (millis() >= l_u32TaserTimeout)) )
@@ -97,15 +100,7 @@ void loop() {
     // we stayed more than timeout with touching detected
     if (l_u32Timer >= TOUCHING_TIME)
     {
-      digitalWrite(EM_PIN, !g_u8EMDefaultState);
-      digitalWrite(LED_INT_PIN, HIGH);
-      #ifdef DEBUG
-      Serial.println("Success !");
-      #endif
-
-      digitalWrite(TASER_PIN, LOW); // Shutdown taser before end of program
-      
-      while(1); // End of program
+      g_u8Success = 1u;
     }
     // taser activation
     else if (l_u32TaserTimer >= TASER_DUTY)
@@ -141,6 +136,26 @@ void loop() {
 
     l_u32ReleaseTimer += DELAY_LOOP_MS;
   }
+
+  if ((1u == g_u8Emergency) || (1u == g_u8Success))
+  {
+    digitalWrite(EM_PIN, !g_u8EMDefaultState);
+    digitalWrite(LED_INT_PIN, HIGH);  
+    digitalWrite(TASER_PIN, LOW); // Shutdown taser before end of program
+
+  #ifdef DEBUG
+    if (1u == g_u8Emergency)
+    {
+      Serial.println("Emergency fired ! Stop program like a success.");
+    }
+    else if (1u == g_u8Success)
+    {
+      Serial.println("Success !");
+    }
+  #endif
+    
+    while(1); // End of program
+  }
   
   delay(DELAY_LOOP_MS);
 }
@@ -171,12 +186,7 @@ void BtnEmergencyManagement(void) {
 
       // button state is high
       if (g_s32ButtonState == HIGH) {
-        digitalWrite(EM_PIN, !g_u8EMDefaultState);
-        digitalWrite(LED_INT_PIN, HIGH);
-        #ifdef DEBUG
-        Serial.println("Success !");
-        #endif
-        while(1);
+        g_u8Emergency = 1u;
       }
     }
   }
