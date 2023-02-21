@@ -13,18 +13,23 @@ An emergency button also allows the EM to be deactivated manually.
 */
 /**************************************************************************/
 
-//#define DEBUG
+#define DEBUG
 
-#define LED_INT_PIN         13        // internal led pin
+#define LED_SUCCESS_PIN         13       // green led ON if success, OFF otherwise
+#define LED_TASER_PIN           8        // yellow led ON if taser ON, OFF otherwise
+
 #define TOUCH_PIN           A0        // pin where we get signal from human touch
-#define TOUCHING_THR        1015      // below this threshold means human is touching
-#define TOUCHING_TIME       90000     // time in ms to stay below the threshold to consider win
-#define RELEASE_TIME        600       // time in ms to confirm human has released conductors (not touching)
-#define TASER_DUTY          20000     // taser activation duty cycle in ms
-#define TASER_DURATION      4000      // taser activation duration
 #define EM_PIN              2         // electromagnet pin
 #define TASER_PIN           3         // taser pin
 #define BTN_EMERGENCY_PIN   4         // emergency button pin
+
+#define TOUCHING_THR        1000      // below this threshold means human is touching
+#define TOUCHING_TIME       90000     // time in ms to stay below the threshold to consider win
+#define RELEASE_TIME        600       // time in ms to confirm human has released conductors (not touching)
+
+#define TASER_DUTY          20000     // taser activation duty cycle in ms
+#define TASER_DURATION      4000      // taser activation duration
+
 #define DELAY_LOOP_MS       100
 
 uint8_t g_u8Success = 0u;             // Flag to indicate a success
@@ -46,8 +51,8 @@ void setup() {
     Serial.println("Program start..");      // print the value to the serial port 
   #endif
   
-  pinMode(LED_INT_PIN, OUTPUT);
-  digitalWrite(LED_INT_PIN, LOW);
+  pinMode(LED_SUCCESS_PIN, OUTPUT);
+  digitalWrite(LED_SUCCESS_PIN, LOW);
 
   pinMode(EM_PIN, OUTPUT);
   digitalWrite(EM_PIN, g_u8EMDefaultState);
@@ -55,12 +60,16 @@ void setup() {
   pinMode(TASER_PIN, OUTPUT);
   digitalWrite(TASER_PIN, LOW);
 
+  pinMode(LED_TASER_PIN, OUTPUT);
+  digitalWrite(LED_TASER_PIN, LOW);
+
   pinMode(TOUCH_PIN, INPUT);
   pinMode(BTN_EMERGENCY_PIN, INPUT);
 }
 
 void loop() {
   uint16_t l_u16TouchValue = 0;             // result of reading the analog pin
+  
   static uint32_t l_u32Timer = 0;           // time below thr in ms
   static uint32_t l_u32ReleaseTimer = 0u;   // time release in ms
   
@@ -77,6 +86,7 @@ void loop() {
   if ( (1u == l_u8TaserState) && ((0u == l_u8IsTouching) || (millis() >= l_u32TaserTimeout)) )
   {
     digitalWrite(TASER_PIN, LOW);
+    digitalWrite(LED_TASER_PIN, LOW);
     l_u8TaserState = 0u;
     l_u32TaserTimeout = 0u;
 
@@ -84,12 +94,12 @@ void loop() {
       Serial.println("Taser OFF !");
     #endif
   }
-
+  
   // Human touching measurement
   l_u16TouchValue = analogRead(TOUCH_PIN);  // read the value from human touch
-  #ifdef DEBUG
+#ifdef DEBUG
   Serial.println(l_u16TouchValue);          // print the value to the serial port
-  #endif
+#endif
 
   // human touching detected
   if (l_u16TouchValue < TOUCHING_THR)
@@ -110,6 +120,7 @@ void loop() {
       l_u32TaserTimeout = millis() + TASER_DURATION;
       l_u8TaserState = 1u;
       digitalWrite(TASER_PIN, HIGH);
+      digitalWrite(LED_TASER_PIN, HIGH);
 
       #ifdef DEBUG
       Serial.println("Taser ON !");
@@ -140,8 +151,9 @@ void loop() {
   if ((1u == g_u8Emergency) || (1u == g_u8Success))
   {
     digitalWrite(EM_PIN, !g_u8EMDefaultState);
-    digitalWrite(LED_INT_PIN, HIGH);  
+    digitalWrite(LED_SUCCESS_PIN, HIGH);  
     digitalWrite(TASER_PIN, LOW); // Shutdown taser before end of program
+    digitalWrite(LED_TASER_PIN, LOW);
 
   #ifdef DEBUG
     if (1u == g_u8Emergency)
