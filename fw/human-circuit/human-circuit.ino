@@ -3,32 +3,53 @@
     @file     Human circuit
     @author   Martin CORNU
     @date     12/02/23
-    @version  1.0
+    @version  2.0
 
 This program read an analog value from a conductor touched by a human.
 If the analog value is below the defined threshold it means that the human is touching the conductor.
-If the human touch > 60s then deactivate an EM. If not touch during the 60s, then start again.
-During touching, activate a taser (during 3s) every 15s.
-An emergency button also allows the EM to be deactivated manually.
+
+There is 2 scenarios:
+1.  Electrical chair: if the human touch > 60s then deactivate an EM. If not touch during the 60s, then start again.
+    During touching, activate a taser (during 3s) every 15s.
+
+2.  Human chain: if the human chain touch > 5s then deactivate an EM. If not touch during the 5s, then start again.
+
+An emergency button also allows the EM to be deactivated manually for both cases.
 */
 /**************************************************************************/
 
-#define DEBUG
+#define DEBUG               // comment to disable
 
-#define LED_SUCCESS_PIN         13       // green led ON if success, OFF otherwise
-#define LED_TASER_PIN           8        // yellow led ON if taser ON, OFF otherwise
+//#define USE_ELEC_CHAIR      // comment to disable
+#define USE_HUMAN_CHAIN     // comment to disable
 
+#define LED_SUCCESS_PIN     13        // green led ON if success, OFF otherwise
 #define TOUCH_PIN           A0        // pin where we get signal from human touch
 #define EM_PIN              2         // electromagnet pin
-#define TASER_PIN           3         // taser pin
 #define BTN_EMERGENCY_PIN   4         // emergency button pin
 
+#define LED_TOUCHING_PIN    8         // yellow led ON if touching ON/taser ON, OFF otherwise
+
+#ifdef  USE_ELEC_CHAIR
+  #define TASER_PIN         3         // taser pin
+#endif
+
 #define TOUCHING_THR        1000      // below this threshold means human is touching
-#define TOUCHING_TIME       60000     // time in ms to stay below the threshold to consider win
+
+#ifdef  USE_ELEC_CHAIR
+  #define TOUCHING_TIME       60000     // time in ms to stay below the threshold to consider win
+#endif
+
+#ifdef  USE_HUMAN_CHAIN
+  #define TOUCHING_TIME       5000     // time in ms to stay below the threshold to consider win
+#endif
+
 #define RELEASE_TIME        600       // time in ms to confirm human has released conductors (not touching)
 
-#define TASER_DUTY          15000     // taser activation duty cycle in ms
-#define TASER_DURATION      3000      // taser activation duration
+#ifdef  USE_ELEC_CHAIR
+  #define TASER_DUTY          15000     // taser activation duty cycle in ms
+  #define TASER_DURATION      3000      // taser activation duration
+#endif
 
 #define DELAY_LOOP_MS       100
 
@@ -48,7 +69,13 @@ unsigned long g_u64DebounceDelay = 50;    // the debounce time; increase if the 
 void setup() {
   #ifdef DEBUG
     Serial.begin(9600);                     // sets serial port for communication
-    Serial.println("Program start..");      // print the value to the serial port 
+    Serial.println("Program v2.0 start..");      // print the value to the serial port 
+    #ifdef USE_ELEC_CHAIR
+      Serial.println("ELEC CHAIR");      // print the value to the serial port 
+    #endif
+    #ifdef USE_HUMAN_CHAIN
+      Serial.println("HUMAN CHAIN");      // print the value to the serial port 
+    #endif
   #endif
   
   pinMode(LED_SUCCESS_PIN, OUTPUT);
@@ -57,11 +84,13 @@ void setup() {
   pinMode(EM_PIN, OUTPUT);
   digitalWrite(EM_PIN, g_u8EMDefaultState);
 
+  pinMode(LED_TOUCHING_PIN, OUTPUT);
+  digitalWrite(LED_TOUCHING_PIN, LOW);
+
+#ifdef USE_ELEC_CHAIR
   pinMode(TASER_PIN, OUTPUT);
   digitalWrite(TASER_PIN, LOW);
-
-  pinMode(LED_TASER_PIN, OUTPUT);
-  digitalWrite(LED_TASER_PIN, LOW);
+#endif
 
   pinMode(TOUCH_PIN, INPUT);
   pinMode(BTN_EMERGENCY_PIN, INPUT);
@@ -73,20 +102,23 @@ void loop() {
   static uint32_t l_u32Timer = 0;           // time below thr in ms
   static uint32_t l_u32ReleaseTimer = 0u;   // time release in ms
   
-  static uint8_t l_u8TaserState = 0u;
-  static uint32_t l_u32TaserTimeout = 0u;
-  static uint32_t l_u32TaserTimer = 0u;
+  #ifdef USE_ELEC_CHAIR
+    static uint8_t l_u8TaserState = 0u;
+    static uint32_t l_u32TaserTimeout = 0u;
+    static uint32_t l_u32TaserTimer = 0u;
+  #endif
 
   static uint8_t l_u8IsTouching = 0u;
 
   // Btn emergency management
   BtnEmergencyManagement();
 
+#ifdef USE_ELEC_CHAIR
   // Shutdown taser if duration terminated or if released
   if ( (1u == l_u8TaserState) && ((0u == l_u8IsTouching) || (millis() >= l_u32TaserTimeout)) )
   {
     digitalWrite(TASER_PIN, LOW);
-    digitalWrite(LED_TASER_PIN, LOW);
+    digitalWrite(LED_TOUCHING_PIN, LOW);
     l_u8TaserState = 0u;
     l_u32TaserTimeout = 0u;
 
@@ -94,6 +126,7 @@ void loop() {
       Serial.println("Taser OFF !");
     #endif
   }
+#endif
   
   // Human touching measurement
   l_u16TouchValue = analogRead(TOUCH_PIN);  // read the value from human touch
@@ -106,12 +139,17 @@ void loop() {
   {
     l_u32ReleaseTimer = 0u; // Human is touching so clear release timer
     l_u8IsTouching = 1u;
+
+    #ifdef USE_HUMAN_CHAIN
+      digitalWrite(LED_TOUCHING_PIN, HIGH);
+    #endif
     
     // we stayed more than timeout with touching detected
     if (l_u32Timer >= TOUCHING_TIME)
     {
       g_u8Success = 1u;
     }
+  #ifdef USE_ELEC_CHAIR
     // taser activation
     else if (l_u32TaserTimer >= TASER_DUTY)
     {      
@@ -120,15 +158,17 @@ void loop() {
       l_u32TaserTimeout = millis() + TASER_DURATION;
       l_u8TaserState = 1u;
       digitalWrite(TASER_PIN, HIGH);
-      digitalWrite(LED_TASER_PIN, HIGH);
+      digitalWrite(LED_TOUCHING_PIN, HIGH);
 
       #ifdef DEBUG
       Serial.println("Taser ON !");
       #endif
     }
 
-    l_u32Timer += DELAY_LOOP_MS;
     l_u32TaserTimer += DELAY_LOOP_MS;
+  #endif
+    l_u32Timer += DELAY_LOOP_MS;
+    
   }
   // not touching
   else
@@ -139,6 +179,10 @@ void loop() {
       // touching not detected then restart timer
       l_u32Timer = 0;
       l_u8IsTouching = 0u;
+
+      #ifdef USE_HUMAN_CHAIN
+        digitalWrite(LED_TOUCHING_PIN, LOW);
+      #endif
 
       #ifdef DEBUG
       Serial.println("Release");
@@ -152,8 +196,11 @@ void loop() {
   {
     digitalWrite(EM_PIN, !g_u8EMDefaultState);
     digitalWrite(LED_SUCCESS_PIN, HIGH);  
+    digitalWrite(LED_TOUCHING_PIN, LOW);
+
+  #ifdef USE_ELEC_CHAIR 
     digitalWrite(TASER_PIN, LOW); // Shutdown taser before end of program
-    digitalWrite(LED_TASER_PIN, LOW);
+  #endif
 
   #ifdef DEBUG
     if (1u == g_u8Emergency)
