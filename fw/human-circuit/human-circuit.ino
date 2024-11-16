@@ -7,8 +7,8 @@
 
 This program read an analog value from a conductor touched by a human.
 If the analog value is below the defined threshold it means that the human is touching the conductor.
-If the human touch > 90s then deactivate an EM. If not touch during the 90s, the start again.
-During touching, activate a taser (during 4s) every 20s.
+If the human touch > 60s then deactivate an EM. If not touch during the 60s, then start again.
+During touching, activate a taser (during 3s) every 15s.
 An emergency button also allows the EM to be deactivated manually.
 */
 /**************************************************************************/
@@ -24,11 +24,11 @@ An emergency button also allows the EM to be deactivated manually.
 #define BTN_EMERGENCY_PIN   4         // emergency button pin
 
 #define TOUCHING_THR        1000      // below this threshold means human is touching
-#define TOUCHING_TIME       90000     // time in ms to stay below the threshold to consider win
+#define TOUCHING_TIME       60000     // time in ms to stay below the threshold to consider win
 #define RELEASE_TIME        600       // time in ms to confirm human has released conductors (not touching)
 
-#define TASER_DUTY          20000     // taser activation duty cycle in ms
-#define TASER_DURATION      4000      // taser activation duration
+#define TASER_DUTY          15000     // taser activation duty cycle in ms
+#define TASER_DURATION      3000      // taser activation duration
 
 #define DELAY_LOOP_MS       100
 
